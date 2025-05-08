@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
 import toast from "react-hot-toast";
 import { FiArrowLeft, FiSave, FiUpload } from "react-icons/fi";
@@ -13,7 +13,9 @@ interface Course {
   lessons: string;
 }
 
-const EditCoursePage = ({ params }: { params: { id: string } }) => {
+const EditCoursePage = () => {
+  const params = useParams();
+  const courseId = params.id as string;
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -30,7 +32,7 @@ const EditCoursePage = ({ params }: { params: { id: string } }) => {
   useEffect(() => {
     const fetchCourse = async () => {
       try {
-        const response = await fetch(`/api/courses/${params.id}`);
+        const response = await fetch(`/api/courses/${courseId}`);
         const data = await response.json();
         if (response.ok) {
           setCourse(data.course);
@@ -45,7 +47,7 @@ const EditCoursePage = ({ params }: { params: { id: string } }) => {
     };
 
     fetchCourse();
-  }, [params.id]);
+  }, [courseId]);
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -77,7 +79,7 @@ const EditCoursePage = ({ params }: { params: { id: string } }) => {
         // Upload the image to our server
         const formData = new FormData();
         formData.append("thumbnail", thumbnailFile);
-        formData.append("courseId", params.id);
+        formData.append("courseId", courseId);
 
         const imageUploadResponse = await fetch("/api/upload-image", {
           method: "POST",
@@ -92,7 +94,7 @@ const EditCoursePage = ({ params }: { params: { id: string } }) => {
         thumbnailUrl = imageData.url;
       }
 
-      const response = await fetch(`/api/courses/${params.id}`, {
+      const response = await fetch(`/api/courses/${courseId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -249,11 +251,15 @@ const EditCoursePage = ({ params }: { params: { id: string } }) => {
               disabled={loading}
             >
               {loading ? (
-                <span>Updating...</span>
+                <div className="flex items-center">
+                  <span className="mr-2 size-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+                  Saving...
+                </div>
               ) : (
-                <>
-                  <FiSave className="mr-2" /> Save Changes
-                </>
+                <div className="flex items-center">
+                  <FiSave className="mr-2" />
+                  Save Changes
+                </div>
               )}
             </button>
           </div>

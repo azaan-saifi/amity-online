@@ -38,7 +38,7 @@ export async function GET(
 // PUT /api/courses/[id] - Replace a course entirely
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await connectToDatabase();
@@ -85,7 +85,7 @@ export async function PUT(
 // PATCH /api/courses/[id] - Update course fields partially
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await connectToDatabase();
@@ -132,7 +132,7 @@ export async function PATCH(
 // DELETE /api/courses/[id] - Delete a course and all related videos
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await connectToDatabase();

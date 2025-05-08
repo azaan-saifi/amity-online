@@ -15,7 +15,7 @@ cloudinary.config({
 // GET /api/courses/[id]/videos - Get all videos for a course
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await connectToDatabase();
@@ -46,7 +46,7 @@ export async function GET(
 // POST /api/courses/[id]/videos - Create a new video
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await connectToDatabase();
@@ -118,7 +118,7 @@ export async function POST(
 // PUT /api/courses/[id]/videos - Update a video
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await connectToDatabase();

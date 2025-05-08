@@ -8,7 +8,7 @@ import { connectToDatabase } from "@/lib/database/mongoose";
 // GET /api/courses/[id] - Get a specific course by ID
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await connectToDatabase();

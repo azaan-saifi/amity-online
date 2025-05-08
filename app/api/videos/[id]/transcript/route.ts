@@ -5,7 +5,7 @@ import { connectToDatabase } from "@/lib/database/mongoose";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await connectToDatabase();

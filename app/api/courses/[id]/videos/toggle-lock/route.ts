@@ -6,7 +6,7 @@ import { connectToDatabase } from "@/lib/database/mongoose";
 // PUT /api/courses/[id]/videos/toggle-lock
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await connectToDatabase();

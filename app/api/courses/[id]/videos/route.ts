@@ -214,7 +214,7 @@ export async function PUT(
 // DELETE /api/courses/[id]/videos - Delete a video
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const { videoId } = await request.json();
   const { id } = await params;

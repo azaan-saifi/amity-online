@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useAuth } from "@clerk/nextjs";
@@ -67,7 +68,7 @@ const CoursesPage = () => {
         // Debug log to see what we're getting
         console.log(
           "All courses with enrollment status:",
-          courseData.map((c) => ({
+          courseData.map((c: any) => ({
             id: c._id,
             title: c.title,
             enrolled: c.enrolled,
@@ -82,7 +83,7 @@ const CoursesPage = () => {
 
         console.log(
           "Filtered enrolled courses:",
-          enrolledCourses.map((c) => ({
+          enrolledCourses.map((c: any) => ({
             id: c._id,
             title: c.title,
             progress: c.progress,

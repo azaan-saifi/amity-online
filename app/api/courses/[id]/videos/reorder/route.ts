@@ -11,7 +11,7 @@ export async function PUT(
   try {
     await connectToDatabase();
 
-    const { id } = params; // Course ID
+    const { id } = await params; // Course ID
     const { videoId, targetPosition } = await request.json();
 
     if (!videoId || targetPosition === undefined) {

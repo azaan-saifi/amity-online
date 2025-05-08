@@ -14,7 +14,7 @@ export async function GET(
     await connectToDatabase();
 
     // Wait for params to resolve to fix NextJS warning
-    const { id } = await Promise.resolve(params);
+    const { id } = await params;
 
     // Find the course by ID
     const course = await Course.findById(id);
@@ -44,7 +44,7 @@ export async function PUT(
     await connectToDatabase();
 
     // Wait for params to resolve to fix NextJS warning
-    const { id } = await Promise.resolve(params);
+    const { id } = await params;
     const courseData = await request.json();
 
     // Get the existing course to check if playlistId changed
@@ -91,7 +91,7 @@ export async function PATCH(
     await connectToDatabase();
 
     // Wait for params to resolve to fix NextJS warning
-    const { id } = await Promise.resolve(params);
+    const { id } = await params;
     const courseData = await request.json();
 
     // Get the existing course to check if playlistId changed

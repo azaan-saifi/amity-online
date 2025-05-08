@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React from "react";
 import {
   AreaChart,
@@ -43,12 +44,14 @@ const RevenueChart = () => {
   return (
     <div className="relative overflow-hidden rounded-lg border border-zinc-800 bg-black/60 p-6 backdrop-blur-sm">
       <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
-      
+
       <div className="mb-6">
         <h3 className="text-xl font-medium text-white">Revenue Overview</h3>
-        <p className="mt-1 text-sm text-zinc-400">Monthly revenue for current year</p>
+        <p className="mt-1 text-sm text-zinc-400">
+          Monthly revenue for current year
+        </p>
       </div>
-      
+
       <div className="h-80 w-full">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart
@@ -61,17 +64,21 @@ const RevenueChart = () => {
                 <stop offset="95%" stopColor="#f0bb1c" stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
-            <XAxis 
-              dataKey="name" 
-              axisLine={false}
-              tickLine={false}
-              tick={{ fill: '#999', fontSize: 12 }}
+            <CartesianGrid
+              strokeDasharray="3 3"
+              stroke="#333"
+              vertical={false}
             />
-            <YAxis 
+            <XAxis
+              dataKey="name"
               axisLine={false}
               tickLine={false}
-              tick={{ fill: '#999', fontSize: 12 }}
+              tick={{ fill: "#999", fontSize: 12 }}
+            />
+            <YAxis
+              axisLine={false}
+              tickLine={false}
+              tick={{ fill: "#999", fontSize: 12 }}
               tickFormatter={(value) => `$${value}`}
             />
             <Tooltip content={<CustomTooltip />} />
@@ -90,4 +97,4 @@ const RevenueChart = () => {
   );
 };
 
-export default RevenueChart; 
+export default RevenueChart;

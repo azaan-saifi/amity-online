@@ -159,7 +159,7 @@ const StudentCard = ({ student }: { student: Student }) => {
 };
 
 const StudentsList = () => {
-  const [students, setStudents] = useState<Student[]>(initialStudents);
+  // const [students, setStudents] = useState<Student[]>(initialStudents);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
@@ -169,7 +169,7 @@ const StudentsList = () => {
     { value: "inactive", label: "Inactive Only" },
   ];
 
-  const filteredStudents = students.filter((student) => {
+  const filteredStudents = initialStudents.filter((student) => {
     const matchesSearch =
       student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       student.email.toLowerCase().includes(searchTerm.toLowerCase());

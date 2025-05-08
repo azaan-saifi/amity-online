@@ -1,7 +1,9 @@
-import fs from 'fs';
-import path from 'path';
-import { connectToDatabase } from '../mongoose';
-import { Pricing } from '../models/pricing.model';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import fs from "fs";
+import path from "path";
+
+import { Pricing } from "../models/pricing.model";
+import { connectToDatabase } from "../mongoose";
 
 /**
  * Seed the pricing data from the JSON file to MongoDB
@@ -10,27 +12,28 @@ import { Pricing } from '../models/pricing.model';
 export async function seedPricingData() {
   try {
     await connectToDatabase();
-    
+
     // Check if we already have pricing data in the database
     const existingPricing = await Pricing.countDocuments();
-    
+
     if (existingPricing > 0) {
-      console.log('Pricing data already exists in the database');
+      console.log("Pricing data already exists in the database");
       return;
     }
-    
+
     // Read the JSON file
-    const dataFilePath = path.join(process.cwd(), 'data/pricing.json');
+    const dataFilePath = path.join(process.cwd(), "data/pricing.json");
     if (!fs.existsSync(dataFilePath)) {
-      console.log('No pricing data file found, using default data');
-      
+      console.log("No pricing data file found, using default data");
+
       // Create default pricing plans
       const defaultPricingPlans = [
         {
           name: "Basic Bender",
           price: 29,
           interval: "monthly",
-          description: "Perfect for beginners looking to start their coding journey.",
+          description:
+            "Perfect for beginners looking to start their coding journey.",
           features: [
             "Access to core courses",
             "Practice exercises",
@@ -44,7 +47,8 @@ export async function seedPricingData() {
           name: "Master Bender",
           price: 89,
           interval: "monthly",
-          description: "For serious learners ready to master the code of the Matrix.",
+          description:
+            "For serious learners ready to master the code of the Matrix.",
           features: [
             "All Basic features",
             "Advanced courses",
@@ -57,17 +61,17 @@ export async function seedPricingData() {
           isPopular: true,
         },
       ];
-      
+
       // Insert default data
       await Pricing.insertMany(defaultPricingPlans);
-      console.log('Default pricing data has been seeded to the database');
+      console.log("Default pricing data has been seeded to the database");
       return;
     }
-    
+
     // Read and parse the JSON file
-    const fileData = fs.readFileSync(dataFilePath, 'utf8');
+    const fileData = fs.readFileSync(dataFilePath, "utf8");
     const pricingData = JSON.parse(fileData);
-    
+
     // Insert the data into MongoDB
     const formattedData = pricingData.map((item: any) => ({
       name: item.name,
@@ -77,10 +81,10 @@ export async function seedPricingData() {
       features: item.features,
       isPopular: item.isPopular,
     }));
-    
+
     await Pricing.insertMany(formattedData);
-    console.log('Pricing data has been seeded to the database');
+    console.log("Pricing data has been seeded to the database");
   } catch (error) {
-    console.error('Error seeding pricing data:', error);
+    console.error("Error seeding pricing data:", error);
   }
-} 
+}

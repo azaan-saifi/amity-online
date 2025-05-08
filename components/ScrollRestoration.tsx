@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
 import { usePathname } from "next/navigation";
+import { useEffect } from "react";
 
 const ScrollRestoration = () => {
   const pathname = usePathname();
@@ -14,4 +14,4 @@ const ScrollRestoration = () => {
   return null; // This component doesn't render anything
 };
 
-export default ScrollRestoration; 
+export default ScrollRestoration;

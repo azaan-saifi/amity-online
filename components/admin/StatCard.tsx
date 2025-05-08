@@ -1,4 +1,3 @@
-import React from "react";
 import { cn } from "@/lib/utils";
 
 interface StatCardProps {
@@ -48,7 +47,7 @@ const StatCard = ({
           )}
         </div>
 
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#ffc20b31] text-[#f0bb1c]">
+        <div className="flex size-12 items-center justify-center rounded-full bg-[#ffc20b31] text-[#f0bb1c]">
           {icon}
         </div>
       </div>

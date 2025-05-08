@@ -27,6 +27,8 @@ export default function RootLayout({
         appearance={{
           baseTheme: dark,
         }}
+        signInFallbackRedirectUrl="/student"
+        signUpFallbackRedirectUrl="/student"
       >
         <body className={`${geistSans.variable} bg-black antialiased`}>
           <Toaster

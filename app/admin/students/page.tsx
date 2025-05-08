@@ -1,13 +1,13 @@
 "use client";
 
-import React from "react";
 import { motion } from "framer-motion";
+import React from "react";
 import { FiUsers, FiUserPlus, FiUserCheck } from "react-icons/fi";
 
 import StatCard from "@/components/admin/StatCard";
-import StudentsList from "@/components/admin/StudentsList";
-import StudentRetentionChart from "@/components/admin/StudentRetentionChart";
 import StudentDemographics from "@/components/admin/StudentDemographics";
+import StudentRetentionChart from "@/components/admin/StudentRetentionChart";
+import StudentsList from "@/components/admin/StudentsList";
 
 const fadeIn = {
   hidden: { opacity: 0, y: 10 },

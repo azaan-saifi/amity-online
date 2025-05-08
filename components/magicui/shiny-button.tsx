@@ -1,8 +1,9 @@
 "use client";
 
-import { cn } from "@/lib/utils";
 import { motion, MotionProps, type AnimationProps } from "motion/react";
 import React from "react";
+
+import { cn } from "@/lib/utils";
 
 const animationProps = {
   initial: { "--x": "100%", scale: 0.8 },
@@ -48,7 +49,7 @@ export const ShinyButton = React.forwardRef<
       {...props}
     >
       <span
-        className="relative flex items-center justify-between gap-1 size-full text-sm uppercase tracking-wide font-light text-white"
+        className="relative flex size-full items-center justify-between gap-1 text-sm font-light uppercase tracking-wide text-white"
         style={{
           maskImage:
             "linear-gradient(-75deg,hsl(var(--primary)) calc(var(--x) + 20%),transparent calc(var(--x) + 30%),hsl(var(--primary)) calc(var(--x) + 100%))",

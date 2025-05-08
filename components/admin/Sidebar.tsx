@@ -6,7 +6,6 @@ import {
   FiBook,
   FiDollarSign,
   FiUsers,
-  FiSettings,
   FiLogOut,
   FiMenu,
   FiX,
@@ -82,11 +81,6 @@ const Sidebar = ({ onLogout }: SidebarProps) => {
       href: "/admin/students",
       icon: <FiUsers />,
       label: "Students",
-    },
-    {
-      href: "/admin/settings",
-      icon: <FiSettings />,
-      label: "Settings",
     },
   ];
 

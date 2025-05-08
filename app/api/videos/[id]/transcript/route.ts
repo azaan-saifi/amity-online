@@ -10,7 +10,7 @@ export async function GET(
   try {
     await connectToDatabase();
 
-    const videoId = params.id;
+    const { id: videoId } = await params;
 
     if (!videoId) {
       return NextResponse.json(

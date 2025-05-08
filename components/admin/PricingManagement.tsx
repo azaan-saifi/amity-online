@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 import React, { useState, useEffect } from "react";
 import toast from "react-hot-toast";
@@ -237,9 +238,8 @@ const PricingManagement = () => {
   const handleSaveNew = async (newPlan: PricingPlan) => {
     try {
       setIsSaving(true);
-
       // Remove the temporary ID
-      const { id, ...planData } = newPlan;
+      const { ...planData } = newPlan;
 
       const response = await fetch("/api/pricing", {
         method: "PUT",

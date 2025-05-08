@@ -31,6 +31,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     // Upload image to Cloudinary
     const cloudinaryResult = await uploadToCloudinary(imageBuffer, folder);
+    console.log(cloudinaryResult.secure_url);
 
     // Return success response with image URL
     return NextResponse.json({

@@ -79,7 +79,7 @@ const EditCoursePage = () => {
         formData.append("thumbnail", thumbnailFile);
         formData.append("courseId", id as string);
 
-        const imageUploadResponse = await fetch("/api/upload-image", {
+        const imageUploadResponse = await fetch("/api/upload-images", {
           method: "POST",
           body: formData,
         });

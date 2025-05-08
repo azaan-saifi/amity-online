@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
 import toast from "react-hot-toast";
@@ -28,6 +29,8 @@ const EditCoursePage = () => {
     thumbnail: "",
     lessons: "",
   });
+
+  console.log(course);
 
   useEffect(() => {
     const fetchCourse = async () => {
@@ -191,10 +194,12 @@ const EditCoursePage = () => {
                   className="relative flex h-32 w-48 cursor-pointer items-center justify-center rounded-md border border-dashed border-zinc-700 bg-zinc-900/50 hover:border-zinc-500"
                 >
                   {previewUrl ? (
-                    <img
+                    <Image
                       src={previewUrl}
+                      width={190}
+                      height={126}
                       alt="Thumbnail preview"
-                      className="size-full rounded-md object-cover"
+                      className="rounded-md object-cover"
                     />
                   ) : (
                     <div className="flex flex-col items-center justify-center text-center">

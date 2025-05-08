@@ -18,11 +18,22 @@ cloudinary.config({
  */
 export async function uploadToCloudinary(buffer: Buffer, folder: string) {
   const result = await new Promise<CloudinaryResult>((resolve, reject) => {
+    const uploadOptions: {
+      resource_type: "auto" | "image" | "video" | "raw";
+      folder: string;
+      upload_preset?: string;
+    } = {
+      resource_type: "auto",
+      folder,
+    };
+
+    // Add upload_preset for unsigned uploads to the lumora-ai-images folder
+    if (folder === "lumora-ai-images") {
+      uploadOptions.upload_preset = "images_preset";
+    }
+
     const uploadStream = cloudinary.uploader.upload_stream(
-      {
-        resource_type: "auto",
-        folder,
-      },
+      uploadOptions,
       (error, result) => {
         if (error) reject(error);
         else resolve(result as CloudinaryResult);

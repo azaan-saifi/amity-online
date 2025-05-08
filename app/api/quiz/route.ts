@@ -1,4 +1,4 @@
-import { openai } from "@ai-sdk/openai";
+import { anthropic } from "@ai-sdk/anthropic";
 import { generateObject } from "ai";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -78,8 +78,8 @@ Here's the transcript excerpt:
 ${JSON.stringify(transcriptData)}`;
 
     const result = await generateObject({
-      // model: anthropic("claude-3-7-sonnet-20250219"),
-      model: openai("gpt-4o-mini"),
+      model: anthropic("claude-3-7-sonnet-20250219"),
+      // model: openai("gpt-4o-mini"),
       schema: QuizResponseSchema,
       prompt: systemPrompt,
     });

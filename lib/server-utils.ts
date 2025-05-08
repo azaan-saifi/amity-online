@@ -78,8 +78,8 @@ export async function formatTranscript(
     // Map segments to the required format
     const formattedTranscript = transcript.chunks.map((segment) => ({
       text: segment.text,
-      startTime: segment.timestamp[0],
-      endTime: segment.timestamp[1],
+      startTime: segment.timestamp[0].toFixed(),
+      endTime: segment.timestamp[1].toFixed(),
     }));
 
     return {

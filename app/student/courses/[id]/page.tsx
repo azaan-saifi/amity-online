@@ -3,7 +3,7 @@ import { useAuth } from "@clerk/nextjs";
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import {
   FiClock,
   FiMenu,
@@ -19,6 +19,7 @@ import {
   FiSkipBack,
   FiSkipForward,
 } from "react-icons/fi";
+import type ReactPlayerType from "react-player";
 
 import BlurWrapper from "@/components/student/BlurWrapper";
 import CourseAiAssistant from "@/components/student/CourseAiAssistant";
@@ -40,6 +41,8 @@ import {
   updateVideoProgress,
   // updateVideoProgress,
 } from "@/lib/actions/videoProgress.action";
+
+// Add proper type for ReactPlayer
 
 // Import ReactPlayer dynamically to avoid SSR issues
 const ReactPlayer = dynamic(() => import("react-player"), {
@@ -98,7 +101,8 @@ const CourseContent = () => {
   const [isSavingNote, setIsSavingNote] = useState(false);
   const [playerReady, setPlayerReady] = useState(false);
 
-  const playerRef = useRef<typeof ReactPlayer>(null);
+  // Update the ref type to be more specific
+  const playerRef = useRef<ReactPlayerType>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState("notes");
   const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
@@ -118,62 +122,113 @@ const CourseContent = () => {
   const [fullscreen, setFullscreen] = useState(false);
   const videoContainerRef = useRef<HTMLDivElement>(null);
 
+  // Add a state to track if audio is actually muted
+  const [audioMuted, setAudioMuted] = useState(false);
+
+  // Add effect to properly handle audio when paused
+  useEffect(() => {
+    // When isPlaying changes to false (paused), ensure audio is muted
+    if (!isPlaying) {
+      setAudioMuted(true);
+
+      // Find and mute all video and audio elements as a fallback
+      try {
+        document.querySelectorAll("video, audio").forEach((media) => {
+          const mediaElement = media as HTMLMediaElement;
+          mediaElement.muted = true;
+          // Also try to pause them directly
+          mediaElement.pause();
+          // Set volume to 0 as an additional safeguard
+          mediaElement.volume = 0;
+        });
+      } catch (e) {
+        console.error("Error muting media elements:", e);
+      }
+    } else {
+      // Restore previous mute state when playing
+      setAudioMuted(muted);
+    }
+  }, [isPlaying, muted]);
+
+  // Improved cleanup function to ensure all media is properly stopped
+  const cleanupMedia = useCallback((preservePosition = false) => {
+    // Store current position if needed
+    if (preservePosition && playerRef.current) {
+      try {
+        const currentTime = playerRef.current.getCurrentTime();
+        setCurrentPlaybackPosition(currentTime);
+      } catch (e) {
+        console.error("Error getting current time:", e);
+      }
+    }
+
+    // Set playing state to false
+    setIsPlaying(false);
+
+    // Mute all audio
+    setAudioMuted(true);
+
+    try {
+      // Find all video and audio elements and properly clean them up
+      document.querySelectorAll("video, audio").forEach((media) => {
+        const mediaElement = media as HTMLMediaElement;
+        // First mute to prevent any sound
+        mediaElement.muted = true;
+        // Set volume to 0 as an additional safeguard
+        mediaElement.volume = 0;
+        // Then pause playback
+        mediaElement.pause();
+
+        // Only remove sources if we're not preserving position
+        if (!preservePosition && mediaElement.src) {
+          const srcBackup = mediaElement.src;
+          mediaElement.src = "";
+          mediaElement.load();
+          // Force a repaint to ensure the browser updates the element
+          // eslint-disable-next-line no-unused-expressions, no-void
+          void mediaElement.offsetHeight;
+          // If this is in a ReactPlayer, we need to be careful about removing sources
+          if (!srcBackup.includes("blob:")) {
+            mediaElement.src = srcBackup;
+            mediaElement.load();
+            mediaElement.pause();
+            mediaElement.muted = true;
+            mediaElement.volume = 0;
+          }
+        }
+
+        // Also try removing event listeners
+        mediaElement.onplay = null;
+        mediaElement.onpause = null;
+        mediaElement.onvolumechange = null;
+        mediaElement.onloadeddata = null;
+        mediaElement.oncanplay = null;
+      });
+    } catch (e) {
+      console.error("Error cleaning up media elements:", e);
+    }
+  }, []);
+
   // Add effect to stop the player when navigating away or unmounting
   useEffect(() => {
     // Cleanup function to ensure player stops when component unmounts
     return () => {
-      setIsPlaying(false);
-      // Stronger cleanup for the video element
-      try {
-        // Find all video elements and pause them
-        const videoElements = document.querySelectorAll("video");
-        videoElements.forEach((video) => {
-          (video as HTMLVideoElement).pause();
-          (video as HTMLVideoElement).src = "";
-          (video as HTMLVideoElement).load();
-        });
-
-        // Clear any audio elements too as a precaution
-        const audioElements = document.querySelectorAll("audio");
-        audioElements.forEach((audio) => {
-          (audio as HTMLAudioElement).pause();
-          (audio as HTMLAudioElement).src = "";
-          (audio as HTMLAudioElement).load();
-        });
-      } catch (e) {
-        console.error("Error stopping media:", e);
-      }
+      cleanupMedia(false); // Don't preserve position on unmount
     };
-  }, []);
+  }, [cleanupMedia]);
 
-  // Add effect to log when right sidebar state changes
-  useEffect(() => {
-    console.log("Right sidebar state changed:", rightSidebarOpen);
-  }, [rightSidebarOpen]);
-
-  // Setup window resize listener to detect mobile
-  useEffect(() => {
-    function handleResize() {
-      setIsSmallScreen(window.innerWidth < 768);
-    }
-
-    handleResize(); // Initial check
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
-
-  // Add effect to handle visibility changes and pause video
+  // Update visibility change handler to use the cleanup function
   useEffect(() => {
     // Handle page visibility changes (tab switching/minimizing)
     const handleVisibilityChange = () => {
       if (document.hidden && isPlaying) {
-        setIsPlaying(false);
+        cleanupMedia(true); // Preserve position when tab becomes hidden
       }
     };
 
     // Handle before unload (page refresh/close)
     const handleBeforeUnload = () => {
-      setIsPlaying(false);
+      cleanupMedia(false); // Don't preserve position on page unload
     };
 
     // Set up event listeners
@@ -185,7 +240,52 @@ const CourseContent = () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("beforeunload", handleBeforeUnload);
     };
-  }, [isPlaying]);
+  }, [isPlaying, cleanupMedia]);
+
+  // Add effect to ensure we clean up on route changes
+  useEffect(() => {
+    // Create a proper event handler for beforeunload
+    const handleBeforeUnload = () => {
+      cleanupMedia(false); // Don't preserve position on page unload
+    };
+
+    // Add event listeners for route changes
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      // Ensure cleanup happens now
+      cleanupMedia(false);
+    };
+  }, [cleanupMedia]);
+
+  // Modified handler to properly stop all media when toggling play state
+  const togglePlay = () => {
+    if (isPlaying) {
+      // If we're currently playing and about to pause, preserve position
+      cleanupMedia(true);
+    } else {
+      // If we're currently paused and about to play
+      setIsPlaying(true);
+      setAudioMuted(muted);
+
+      // If we have a stored position, ensure we're at that position
+      if (playerRef.current && currentPlaybackPosition > 0) {
+        playerRef.current.seekTo(currentPlaybackPosition);
+      }
+    }
+  };
+
+  // Setup window resize listener to detect mobile
+  useEffect(() => {
+    function handleResize() {
+      setIsSmallScreen(window.innerWidth < 768);
+    }
+
+    handleResize(); // Initial check
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   // Effect to automatically hide sidebar when AI Assistant or Practice Quiz is selected (on desktop)
   useEffect(() => {
@@ -488,60 +588,90 @@ const CourseContent = () => {
       .padStart(2, "0")}`;
   };
 
-  // Modified handler to stop all media when toggling play state to false
-  const togglePlay = () => {
-    // If we're about to pause the player, ensure all media elements are stopped
-    if (isPlaying) {
-      try {
-        // Find all video elements and pause them to be extra safe
-        document.querySelectorAll("video").forEach((video) => {
-          (video as HTMLVideoElement).pause();
-        });
-      } catch (e) {
-        console.error("Error stopping videos in toggle:", e);
-      }
+  // Toggle mute
+  const toggleMute = () => {
+    const newMutedState = !muted;
+    setMuted(newMutedState);
+    setAudioMuted(newMutedState);
+
+    // Also try to directly mute any active media elements
+    try {
+      document.querySelectorAll("video, audio").forEach((media) => {
+        const mediaElement = media as HTMLMediaElement;
+        mediaElement.muted = newMutedState;
+        if (newMutedState) {
+          mediaElement.volume = 0;
+        } else {
+          mediaElement.volume = volume;
+        }
+      });
+    } catch (e) {
+      console.error("Error toggling mute on media elements:", e);
     }
-    setIsPlaying(!isPlaying);
   };
 
   // Handle volume change
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newVolume = parseFloat(e.target.value);
     setVolume(newVolume);
-    setMuted(newVolume === 0);
+    const shouldMute = newVolume === 0;
+    setMuted(shouldMute);
+    setAudioMuted(shouldMute);
+
+    // Also try to directly set volume on any active media elements
+    try {
+      document.querySelectorAll("video, audio").forEach((media) => {
+        const mediaElement = media as HTMLMediaElement;
+        mediaElement.volume = newVolume;
+        mediaElement.muted = shouldMute;
+      });
+    } catch (e) {
+      console.error("Error changing volume on media elements:", e);
+    }
   };
 
-  // Toggle mute
-  const toggleMute = () => {
-    setMuted(!muted);
-  };
-
-  // Skip forward 10 seconds
+  // Skip forward 10 seconds - fixed typing
   const skipForward = () => {
     if (playerRef.current) {
-      // @ts-expect-error - playerRef.current.seekTo exists but TypeScript doesn't know the type
       const currentTime = playerRef.current.getCurrentTime();
-      // @ts-expect-error - playerRef.current.seekTo exists but TypeScript doesn't know the type
+      // Temporarily mute during seeking to prevent audio glitches
+      const wasMuted = muted;
+      setAudioMuted(true);
       playerRef.current.seekTo(currentTime + 10);
+      // Restore audio state after a short delay
+      setTimeout(() => {
+        setAudioMuted(wasMuted);
+      }, 50);
     }
   };
 
-  // Skip backward 10 seconds
+  // Skip backward 10 seconds - fixed typing
   const skipBackward = () => {
     if (playerRef.current) {
-      // @ts-expect-error - playerRef.current.seekTo exists but TypeScript doesn't know the type
       const currentTime = playerRef.current.getCurrentTime();
-      // @ts-expect-error - playerRef.current.seekTo exists but TypeScript doesn't know the type
+      // Temporarily mute during seeking to prevent audio glitches
+      const wasMuted = muted;
+      setAudioMuted(true);
       playerRef.current.seekTo(Math.max(0, currentTime - 10));
+      // Restore audio state after a short delay
+      setTimeout(() => {
+        setAudioMuted(wasMuted);
+      }, 50);
     }
   };
 
-  // Handle seeking when user interacts with progress bar
+  // Handle seeking when user interacts with progress bar - fixed typing
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
     const seekTime = parseFloat(e.target.value);
     if (playerRef.current) {
-      // @ts-expect-error - playerRef.current.seekTo exists but TypeScript doesn't know the type
+      // Temporarily mute during seeking to prevent audio glitches
+      const wasMuted = muted;
+      setAudioMuted(true);
       playerRef.current.seekTo(seekTime);
+      // Restore audio state after a short delay
+      setTimeout(() => {
+        setAudioMuted(wasMuted);
+      }, 50);
     }
   };
 
@@ -566,48 +696,6 @@ const CourseContent = () => {
     document.addEventListener("fullscreenchange", handleFullscreenChange);
     return () => {
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
-    };
-  }, []);
-
-  // Add effect to ensure we clean up on route changes
-  useEffect(() => {
-    // Cleanup function for route changes
-    const handleRouteChangeStart = () => {
-      // Immediately stop playing
-      setIsPlaying(false);
-
-      // More aggressive cleanup for media elements
-      try {
-        // Find all video elements and pause them
-        const videoElements = document.querySelectorAll("video");
-        videoElements.forEach((video) => {
-          (video as HTMLVideoElement).pause();
-          (video as HTMLVideoElement).src = "";
-          (video as HTMLVideoElement).load();
-        });
-
-        // Clear any audio elements too as a precaution
-        const audioElements = document.querySelectorAll("audio");
-        audioElements.forEach((audio) => {
-          (audio as HTMLAudioElement).pause();
-          (audio as HTMLAudioElement).src = "";
-          (audio as HTMLAudioElement).load();
-        });
-      } catch (e) {
-        console.error("Error cleaning up media on route change:", e);
-      }
-    };
-
-    // Add event listeners for route changes
-    window.addEventListener("beforeunload", handleRouteChangeStart);
-
-    // For App Router, we can't directly listen to route changes
-    // We need to handle cleanup in the component unmount effect
-
-    return () => {
-      window.removeEventListener("beforeunload", handleRouteChangeStart);
-      // Ensure cleanup happens now
-      handleRouteChangeStart();
     };
   }, []);
 
@@ -866,8 +954,14 @@ const CourseContent = () => {
                     courseId={id as string}
                     onSeekTo={(seconds) => {
                       if (playerRef.current) {
-                        // @ts-expect-error - playerRef.current.seekTo exists but TypeScript doesn't know the type
+                        // Temporarily mute during seeking to prevent audio glitches
+                        const wasMuted = muted;
+                        setAudioMuted(true);
                         playerRef.current.seekTo(seconds);
+                        // Restore audio state after a short delay
+                        setTimeout(() => {
+                          setAudioMuted(wasMuted);
+                        }, 50);
                       }
                     }}
                   />
@@ -886,8 +980,14 @@ const CourseContent = () => {
                   onQuizCompleted={handleQuizCompleted}
                   onSeekTo={(seconds) => {
                     if (playerRef.current) {
-                      // @ts-expect-error - playerRef.current.seekTo exists but TypeScript doesn't know the type
+                      // Temporarily mute during seeking to prevent audio glitches
+                      const wasMuted = muted;
+                      setAudioMuted(true);
                       playerRef.current.seekTo(seconds);
+                      // Restore audio state after a short delay
+                      setTimeout(() => {
+                        setAudioMuted(wasMuted);
+                      }, 50);
                     }
                   }}
                 />
@@ -956,21 +1056,22 @@ const CourseContent = () => {
                 >
                   {selectedVideo && (
                     <ReactPlayer
-                      key={`video-${selectedVideo._id}-${isPlaying}`}
+                      key={`video-${selectedVideo._id}`}
                       ref={playerRef}
                       url={selectedVideo.url}
                       width="100%"
                       height="100%"
                       playing={isPlaying}
                       volume={volume}
-                      muted={muted}
+                      muted={audioMuted || muted}
                       controls={false}
                       stopOnUnmount={true}
                       playsinline={true}
+                      pip={false}
                       onError={(e) => {
                         console.error("ReactPlayer error:", e);
-                        // Reset player state on error
-                        setIsPlaying(false);
+                        // Reset player state on error, but don't preserve position
+                        cleanupMedia(false);
                       }}
                       onReady={() => {
                         setPlayerReady(true);
@@ -980,10 +1081,15 @@ const CourseContent = () => {
                           playerRef.current &&
                           !hasInitialSeekRef.current
                         ) {
-                          // @ts-expect-error - playerRef.current.seekTo exists but TypeScript doesn't know the type
+                          // Temporarily mute during initial seeking to prevent audio glitches
+                          setAudioMuted(true);
                           playerRef.current.seekTo(initialStartPosition);
                           // Mark that we've already done the initial seek
                           hasInitialSeekRef.current = true;
+                          // Restore audio state after a short delay
+                          setTimeout(() => {
+                            setAudioMuted(muted);
+                          }, 100);
                         }
                       }}
                       onProgress={(state) => {
@@ -1005,16 +1111,68 @@ const CourseContent = () => {
                           }
                         }
                       }}
-                      onPause={() => setIsPlaying(false)}
-                      onEnded={() => setIsPlaying(false)}
+                      onPause={() => {
+                        // Store current position before setting pause state
+                        if (playerRef.current) {
+                          const currentTime =
+                            playerRef.current.getCurrentTime();
+                          setCurrentPlaybackPosition(currentTime);
+                        }
+
+                        setIsPlaying(false);
+                        setAudioMuted(true);
+
+                        // Directly mute any audio elements to be extra safe
+                        try {
+                          document
+                            .querySelectorAll("video, audio")
+                            .forEach((media) => {
+                              const mediaElement = media as HTMLMediaElement;
+                              mediaElement.muted = true;
+                              mediaElement.volume = 0;
+                            });
+                        } catch (e) {
+                          console.error("Error muting on pause:", e);
+                        }
+                      }}
+                      onPlay={() => {
+                        setIsPlaying(true);
+                        setAudioMuted(muted);
+                      }}
+                      onEnded={() => cleanupMedia(false)}
                       onDuration={(duration) => setDuration(duration)}
                       config={{
                         file: {
                           attributes: {
                             controlsList: "nodownload",
                             disablePictureInPicture: true,
+                            onContextMenu: (e: React.MouseEvent) =>
+                              e.preventDefault(),
+                            autoPlay: false, // Disable browser's autoplay
+                            preload: "metadata", // Only preload metadata, not the whole video
                           },
                           forceVideo: true,
+                          forceAudio: false,
+                        },
+                        youtube: {
+                          playerVars: {
+                            disablekb: 1,
+                            fs: 0,
+                            modestbranding: 1,
+                            rel: 0,
+                            iv_load_policy: 3,
+                          },
+                          embedOptions: {
+                            onUnstarted: () => setIsPlaying(false),
+                          },
+                        },
+                        vimeo: {
+                          playerOptions: {
+                            autopause: true,
+                            byline: false,
+                            portrait: false,
+                            title: false,
+                          },
                         },
                       }}
                     />
@@ -1092,9 +1250,9 @@ const CourseContent = () => {
                             <button
                               onClick={toggleMute}
                               className="rounded-full p-1 text-white hover:bg-white/20"
-                              aria-label={muted ? "Unmute" : "Mute"}
+                              aria-label={audioMuted ? "Unmute" : "Mute"}
                             >
-                              {muted || volume === 0 ? (
+                              {audioMuted ? (
                                 <FiVolumeX className="size-4" />
                               ) : (
                                 <FiVolume2 className="size-4" />
@@ -1222,8 +1380,14 @@ const CourseContent = () => {
                           courseId={id as string}
                           onSeekTo={(seconds) => {
                             if (playerRef.current) {
-                              // @ts-expect-error - playerRef.current.seekTo exists but TypeScript doesn't know the type
+                              // Temporarily mute during seeking to prevent audio glitches
+                              const wasMuted = muted;
+                              setAudioMuted(true);
                               playerRef.current.seekTo(seconds);
+                              // Restore audio state after a short delay
+                              setTimeout(() => {
+                                setAudioMuted(wasMuted);
+                              }, 50);
                             }
                           }}
                         />
@@ -1243,8 +1407,14 @@ const CourseContent = () => {
                         onQuizCompleted={handleQuizCompleted}
                         onSeekTo={(seconds) => {
                           if (playerRef.current) {
-                            // @ts-expect-error - playerRef.current.seekTo exists but TypeScript doesn't know the type
+                            // Temporarily mute during seeking to prevent audio glitches
+                            const wasMuted = muted;
+                            setAudioMuted(true);
                             playerRef.current.seekTo(seconds);
+                            // Restore audio state after a short delay
+                            setTimeout(() => {
+                              setAudioMuted(wasMuted);
+                            }, 50);
                           }
                         }}
                       />

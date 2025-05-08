@@ -52,11 +52,12 @@ export async function uploadToCloudinary(buffer: Buffer, folder: string) {
  */
 export async function generateTranscript(url: string) {
   const input = {
-    url,
+    audio: url,
+    batch_size: 64,
   };
   try {
     const transcription = await replicate.run(
-      "turian/insanely-fast-whisper-with-video:4f41e90243af171da918f04da3e526b2c247065583ea9b757f2071f573965408",
+      "vaibhavs10/incredibly-fast-whisper:3ab86df6c8f54c11309d4d1f930ac292bad43ace52d10c80d87eb258b3c9f79c",
       { input }
     );
     return transcription as TranscriptResponse;

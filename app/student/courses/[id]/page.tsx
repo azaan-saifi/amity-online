@@ -42,7 +42,10 @@ import {
 } from "@/lib/actions/videoProgress.action";
 
 // Import ReactPlayer dynamically to avoid SSR issues
-const ReactPlayer = dynamic(() => import("react-player"), { ssr: false });
+const ReactPlayer = dynamic(() => import("react-player"), {
+  ssr: false,
+  loading: () => <div className="aspect-video w-full bg-zinc-900" />,
+});
 
 interface Video {
   _id: string;
@@ -115,6 +118,34 @@ const CourseContent = () => {
   const [fullscreen, setFullscreen] = useState(false);
   const videoContainerRef = useRef<HTMLDivElement>(null);
 
+  // Add effect to stop the player when navigating away or unmounting
+  useEffect(() => {
+    // Cleanup function to ensure player stops when component unmounts
+    return () => {
+      setIsPlaying(false);
+      // Stronger cleanup for the video element
+      try {
+        // Find all video elements and pause them
+        const videoElements = document.querySelectorAll("video");
+        videoElements.forEach((video) => {
+          (video as HTMLVideoElement).pause();
+          (video as HTMLVideoElement).src = "";
+          (video as HTMLVideoElement).load();
+        });
+
+        // Clear any audio elements too as a precaution
+        const audioElements = document.querySelectorAll("audio");
+        audioElements.forEach((audio) => {
+          (audio as HTMLAudioElement).pause();
+          (audio as HTMLAudioElement).src = "";
+          (audio as HTMLAudioElement).load();
+        });
+      } catch (e) {
+        console.error("Error stopping media:", e);
+      }
+    };
+  }, []);
+
   // Add effect to log when right sidebar state changes
   useEffect(() => {
     console.log("Right sidebar state changed:", rightSidebarOpen);
@@ -130,6 +161,31 @@ const CourseContent = () => {
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
+
+  // Add effect to handle visibility changes and pause video
+  useEffect(() => {
+    // Handle page visibility changes (tab switching/minimizing)
+    const handleVisibilityChange = () => {
+      if (document.hidden && isPlaying) {
+        setIsPlaying(false);
+      }
+    };
+
+    // Handle before unload (page refresh/close)
+    const handleBeforeUnload = () => {
+      setIsPlaying(false);
+    };
+
+    // Set up event listeners
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    // Cleanup
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [isPlaying]);
 
   // Effect to automatically hide sidebar when AI Assistant or Practice Quiz is selected (on desktop)
   useEffect(() => {
@@ -432,8 +488,19 @@ const CourseContent = () => {
       .padStart(2, "0")}`;
   };
 
-  // Handle play/pause toggle
+  // Modified handler to stop all media when toggling play state to false
   const togglePlay = () => {
+    // If we're about to pause the player, ensure all media elements are stopped
+    if (isPlaying) {
+      try {
+        // Find all video elements and pause them to be extra safe
+        document.querySelectorAll("video").forEach((video) => {
+          (video as HTMLVideoElement).pause();
+        });
+      } catch (e) {
+        console.error("Error stopping videos in toggle:", e);
+      }
+    }
     setIsPlaying(!isPlaying);
   };
 
@@ -499,6 +566,48 @@ const CourseContent = () => {
     document.addEventListener("fullscreenchange", handleFullscreenChange);
     return () => {
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
+    };
+  }, []);
+
+  // Add effect to ensure we clean up on route changes
+  useEffect(() => {
+    // Cleanup function for route changes
+    const handleRouteChangeStart = () => {
+      // Immediately stop playing
+      setIsPlaying(false);
+
+      // More aggressive cleanup for media elements
+      try {
+        // Find all video elements and pause them
+        const videoElements = document.querySelectorAll("video");
+        videoElements.forEach((video) => {
+          (video as HTMLVideoElement).pause();
+          (video as HTMLVideoElement).src = "";
+          (video as HTMLVideoElement).load();
+        });
+
+        // Clear any audio elements too as a precaution
+        const audioElements = document.querySelectorAll("audio");
+        audioElements.forEach((audio) => {
+          (audio as HTMLAudioElement).pause();
+          (audio as HTMLAudioElement).src = "";
+          (audio as HTMLAudioElement).load();
+        });
+      } catch (e) {
+        console.error("Error cleaning up media on route change:", e);
+      }
+    };
+
+    // Add event listeners for route changes
+    window.addEventListener("beforeunload", handleRouteChangeStart);
+
+    // For App Router, we can't directly listen to route changes
+    // We need to handle cleanup in the component unmount effect
+
+    return () => {
+      window.removeEventListener("beforeunload", handleRouteChangeStart);
+      // Ensure cleanup happens now
+      handleRouteChangeStart();
     };
   }, []);
 
@@ -845,58 +954,71 @@ const CourseContent = () => {
                   ref={videoContainerRef}
                   className="relative aspect-video w-full overflow-hidden rounded-lg bg-black shadow-xl"
                 >
-                  <ReactPlayer
-                    ref={playerRef}
-                    url={selectedVideo.url}
-                    width="100%"
-                    height="100%"
-                    playing={isPlaying}
-                    volume={volume}
-                    muted={muted}
-                    controls={false}
-                    onReady={() => {
-                      setPlayerReady(true);
-                      // Seek to initial position when player is ready, but only once
-                      if (
-                        initialStartPosition > 0 &&
-                        playerRef.current &&
-                        !hasInitialSeekRef.current
-                      ) {
-                        // @ts-expect-error - playerRef.current.seekTo exists but TypeScript doesn't know the type
-                        playerRef.current.seekTo(initialStartPosition);
-                        // Mark that we've already done the initial seek
-                        hasInitialSeekRef.current = true;
-                      }
-                    }}
-                    onProgress={(state) => {
-                      if (playerReady) {
-                        // Calculate current progress percentage
-                        const currentPercent = Math.round(state.played * 100);
-
-                        // Update current position without triggering additional seeks
-                        setCurrentPlaybackPosition(state.playedSeconds);
-
-                        // Only update progress periodically to avoid too many server calls
-                        const now = Date.now();
-                        if (now - lastUpdateTimeRef.current > 5000) {
-                          handleVideoProgress(
-                            currentPercent,
-                            state.playedSeconds
-                          );
-                          lastUpdateTimeRef.current = now;
+                  {selectedVideo && (
+                    <ReactPlayer
+                      key={`video-${selectedVideo._id}-${isPlaying}`}
+                      ref={playerRef}
+                      url={selectedVideo.url}
+                      width="100%"
+                      height="100%"
+                      playing={isPlaying}
+                      volume={volume}
+                      muted={muted}
+                      controls={false}
+                      stopOnUnmount={true}
+                      playsinline={true}
+                      onError={(e) => {
+                        console.error("ReactPlayer error:", e);
+                        // Reset player state on error
+                        setIsPlaying(false);
+                      }}
+                      onReady={() => {
+                        setPlayerReady(true);
+                        // Seek to initial position when player is ready, but only once
+                        if (
+                          initialStartPosition > 0 &&
+                          playerRef.current &&
+                          !hasInitialSeekRef.current
+                        ) {
+                          // @ts-expect-error - playerRef.current.seekTo exists but TypeScript doesn't know the type
+                          playerRef.current.seekTo(initialStartPosition);
+                          // Mark that we've already done the initial seek
+                          hasInitialSeekRef.current = true;
                         }
-                      }
-                    }}
-                    onDuration={(duration) => setDuration(duration)}
-                    config={{
-                      file: {
-                        attributes: {
-                          controlsList: "nodownload",
-                          disablePictureInPicture: true,
+                      }}
+                      onProgress={(state) => {
+                        if (playerReady) {
+                          // Calculate current progress percentage
+                          const currentPercent = Math.round(state.played * 100);
+
+                          // Update current position without triggering additional seeks
+                          setCurrentPlaybackPosition(state.playedSeconds);
+
+                          // Only update progress periodically to avoid too many server calls
+                          const now = Date.now();
+                          if (now - lastUpdateTimeRef.current > 5000) {
+                            handleVideoProgress(
+                              currentPercent,
+                              state.playedSeconds
+                            );
+                            lastUpdateTimeRef.current = now;
+                          }
+                        }
+                      }}
+                      onPause={() => setIsPlaying(false)}
+                      onEnded={() => setIsPlaying(false)}
+                      onDuration={(duration) => setDuration(duration)}
+                      config={{
+                        file: {
+                          attributes: {
+                            controlsList: "nodownload",
+                            disablePictureInPicture: true,
+                          },
+                          forceVideo: true,
                         },
-                      },
-                    }}
-                  />
+                      }}
+                    />
+                  )}
 
                   {/* Custom overlay controls */}
                   <div className="absolute inset-0 flex flex-col justify-between bg-gradient-to-t from-black/70 to-transparent opacity-0 transition-opacity duration-300 hover:opacity-100">

@@ -1,0 +1,11 @@
+{
+  "profileInfo": {
+    "fullName": "Admin User",
+    "email": "admin@example.com",
+    "timezone": "UTC"
+  },
+  "siteSettings": {
+    "siteName": "Code Benders Academy",
+    "siteDescription": "Turn passive video watching into an active, search-driven, practice-oriented learning journey"
+  }
+}

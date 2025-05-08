@@ -1,0 +1,37 @@
+[
+  {
+    "id": "1",
+    "name": "Basic Bender",
+    "price": 800,
+    "interval": "monthly",
+    "description": "Perfect for beginners looking to start their coding journey. by ken abey salle kalu",
+    "features": [
+      "Community forum access",
+      "Monthly coding challenges",
+      "Email support",
+      "helulu",
+      "nggz",
+      "hgdhgbfdvbf"
+    ],
+    "isPopular": false
+  },
+  {
+    "id": "2",
+    "name": "Master Bender xd",
+    "price": 80000,
+    "interval": "monthly",
+    "description": "azaan bhai ki taraf se free. hahaha hehe",
+    "features": [
+      "Azaan bhai ka number. ",
+      "sufyaan ka number yahuu",
+      "1-on-1 mentoring sessions",
+      "Project reviews",
+      "Priority support",
+      "Certificate of completion",
+      "Job opportunity alerts",
+      "yowaimooo",
+      "gjhtjhtrh"
+    ],
+    "isPopular": true
+  }
+]

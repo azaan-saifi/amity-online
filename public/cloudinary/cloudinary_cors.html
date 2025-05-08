@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Cloudinary CORS support page</title>
+  </head>
+  <body>
+    <script>
+      // This JavaScript code is required for Cloudinary's jQuery plugin to support CORS
+      // and iframe based uploads in Internet Explorer.
+      window.parent.postMessage(
+        JSON.stringify({
+          cloudinaryResponse: {
+            message: document.location.search.slice(1),
+          },
+        }),
+        "*"
+      );
+    </script>
+  </body>
+</html>

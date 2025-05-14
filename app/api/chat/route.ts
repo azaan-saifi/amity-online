@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
 
     // Stream the AI response
     const response = streamText({
-      model: google("gemini-2.5-pro-exp-03-25"),
+      model: google("gemini-2.5-flash-preview-04-17"),
       system: `You are an AI Learning Assistant for an educational platform with video lectures.
 Your goal is to help students understand the video content, navigate to relevant parts of lectures, and provide additional explanations.
 

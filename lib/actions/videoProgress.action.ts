@@ -1,7 +1,7 @@
 "use server";
 
 import { ObjectId } from "mongodb";
-import { revalidatePath } from "next/cache";
+// import { revalidatePath } from "next/cache";
 
 import { updateEnrollmentCompletion } from "@/lib/actions/userEnrollment.action";
 import Course from "@/lib/database/models/courses.model";
@@ -22,8 +22,12 @@ export async function updateVideoProgress(
 
     if (!userId) throw new Error("Unauthorized");
 
-    // Mark as completed if watched more than 90%
-    const completed = watchedPercent >= 90;
+    // Mark as completed if watched more than 95%
+    const completed = watchedPercent >= 95;
+
+    console.log(
+      `Updating video progress: ${watchedPercent}%, position: ${playbackPositionSeconds}s, completed: ${completed}`
+    );
 
     // Try a different update approach: first find, then update
     let progressRecord = await VideoProgress.findOne({ userId, videoId });
@@ -40,6 +44,9 @@ export async function updateVideoProgress(
       }
 
       await progressRecord.save();
+      console.log(
+        `Updated existing progress record for video ${videoId}, position: ${playbackPositionSeconds}s`
+      );
     } else {
       // Create new record
       progressRecord = new VideoProgress({
@@ -56,6 +63,7 @@ export async function updateVideoProgress(
       });
 
       await progressRecord.save();
+      console.log(`Created new progress record for video ${videoId}`);
     }
 
     // If video is completed, unlock the next video in the sequence
@@ -74,6 +82,7 @@ export async function updateVideoProgress(
         // If there is a next video, unlock it
         if (nextVideo && nextVideo.locked) {
           await Video.findByIdAndUpdate(nextVideo._id, { locked: false });
+          console.log(`Unlocked next video: ${nextVideo._id}`);
         }
       }
 
@@ -81,7 +90,7 @@ export async function updateVideoProgress(
       await updateCourseProgress(courseId, userId);
     }
 
-    revalidatePath(`/student/courses/[id]`);
+    // revalidatePath(`/student/courses/[id]`);
     return { success: true, completed };
   } catch (error) {
     console.error("Error updating video progress:", error);

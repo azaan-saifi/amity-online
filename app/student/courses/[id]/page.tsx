@@ -1,9 +1,8 @@
 "use client";
 import { useAuth } from "@clerk/nextjs";
-import dynamic from "next/dynamic";
 import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   FiClock,
   FiMenu,
@@ -11,15 +10,7 @@ import {
   FiCheckCircle,
   FiChevronRight,
   FiX,
-  FiPlay,
-  FiPause,
-  FiVolume2,
-  FiVolumeX,
-  FiMaximize,
-  FiSkipBack,
-  FiSkipForward,
 } from "react-icons/fi";
-import type ReactPlayerType from "react-player";
 
 import BlurWrapper from "@/components/student/BlurWrapper";
 import CourseAiAssistant from "@/components/student/CourseAiAssistant";
@@ -28,6 +19,7 @@ import CoursePracticeQuiz from "@/components/student/CoursePracticeQuiz";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { VideoListShimmer, VideoPlayerShimmer } from "@/components/ui/shimmer";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import VideoPlyr from "@/components/VideoPlyr";
 import { getCourseById, getVideosForCourse } from "@/lib/actions/course.action";
 import {
   getNoteForVideo,
@@ -39,16 +31,7 @@ import {
   getCourseProgress,
   getVideoProgress,
   updateVideoProgress,
-  // updateVideoProgress,
 } from "@/lib/actions/videoProgress.action";
-
-// Add proper type for ReactPlayer
-
-// Import ReactPlayer dynamically to avoid SSR issues
-const ReactPlayer = dynamic(() => import("react-player"), {
-  ssr: false,
-  loading: () => <div className="aspect-video w-full bg-zinc-900" />,
-});
 
 interface Video {
   _id: string;
@@ -71,14 +54,14 @@ interface VideoProgress {
   completed: boolean;
 }
 
-interface Note {
-  _id: string;
-  content: string;
-  markdownContent: string;
-  title: string;
-  tags: string[];
-  isPublic: boolean;
-}
+// interface Note {
+//   _id: string;
+//   content: string;
+//   markdownContent: string;
+//   title: string;
+//   tags: string[];
+//   isPublic: boolean;
+// }
 
 const CourseContent = () => {
   const { id } = useParams();
@@ -99,182 +82,17 @@ const CourseContent = () => {
   const [noteContent, setNoteContent] = useState("");
   const [noteTitle, setNoteTitle] = useState("Untitled Note");
   const [isSavingNote, setIsSavingNote] = useState(false);
-  const [playerReady, setPlayerReady] = useState(false);
 
-  // Update the ref type to be more specific
-  const playerRef = useRef<ReactPlayerType>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState("notes");
   const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
 
   // Add refs for scrolling
   const notesRef = useRef<HTMLDivElement>(null);
-  const lastUpdateTimeRef = useRef<number>(Date.now());
-  const [initialStartPosition, setInitialStartPosition] = useState(0);
   const [currentPlaybackPosition, setCurrentPlaybackPosition] = useState(0);
-  // Add a flag to track when we've manually sought to prevent infinite loops
-  const hasInitialSeekRef = useRef(false);
-
-  const [isPlaying, setIsPlaying] = useState(true);
-  const [duration, setDuration] = useState(0);
-  const [muted, setMuted] = useState(false);
-  const [volume, setVolume] = useState(0.8);
-  const [fullscreen, setFullscreen] = useState(false);
-  const videoContainerRef = useRef<HTMLDivElement>(null);
-
-  // Add a state to track if audio is actually muted
-  const [audioMuted, setAudioMuted] = useState(false);
-
-  // Add effect to properly handle audio when paused
-  useEffect(() => {
-    // When isPlaying changes to false (paused), ensure audio is muted
-    if (!isPlaying) {
-      setAudioMuted(true);
-
-      // Find and mute all video and audio elements as a fallback
-      try {
-        document.querySelectorAll("video, audio").forEach((media) => {
-          const mediaElement = media as HTMLMediaElement;
-          mediaElement.muted = true;
-          // Also try to pause them directly
-          mediaElement.pause();
-          // Set volume to 0 as an additional safeguard
-          mediaElement.volume = 0;
-        });
-      } catch (e) {
-        console.error("Error muting media elements:", e);
-      }
-    } else {
-      // Restore previous mute state when playing
-      setAudioMuted(muted);
-    }
-  }, [isPlaying, muted]);
-
-  // Improved cleanup function to ensure all media is properly stopped
-  const cleanupMedia = useCallback((preservePosition = false) => {
-    // Store current position if needed
-    if (preservePosition && playerRef.current) {
-      try {
-        const currentTime = playerRef.current.getCurrentTime();
-        setCurrentPlaybackPosition(currentTime);
-      } catch (e) {
-        console.error("Error getting current time:", e);
-      }
-    }
-
-    // Set playing state to false
-    setIsPlaying(false);
-
-    // Mute all audio
-    setAudioMuted(true);
-
-    try {
-      // Find all video and audio elements and properly clean them up
-      document.querySelectorAll("video, audio").forEach((media) => {
-        const mediaElement = media as HTMLMediaElement;
-        // First mute to prevent any sound
-        mediaElement.muted = true;
-        // Set volume to 0 as an additional safeguard
-        mediaElement.volume = 0;
-        // Then pause playback
-        mediaElement.pause();
-
-        // Only remove sources if we're not preserving position
-        if (!preservePosition && mediaElement.src) {
-          const srcBackup = mediaElement.src;
-          mediaElement.src = "";
-          mediaElement.load();
-          // Force a repaint to ensure the browser updates the element
-          // eslint-disable-next-line no-unused-expressions, no-void
-          void mediaElement.offsetHeight;
-          // If this is in a ReactPlayer, we need to be careful about removing sources
-          if (!srcBackup.includes("blob:")) {
-            mediaElement.src = srcBackup;
-            mediaElement.load();
-            mediaElement.pause();
-            mediaElement.muted = true;
-            mediaElement.volume = 0;
-          }
-        }
-
-        // Also try removing event listeners
-        mediaElement.onplay = null;
-        mediaElement.onpause = null;
-        mediaElement.onvolumechange = null;
-        mediaElement.onloadeddata = null;
-        mediaElement.oncanplay = null;
-      });
-    } catch (e) {
-      console.error("Error cleaning up media elements:", e);
-    }
-  }, []);
-
-  // Add effect to stop the player when navigating away or unmounting
-  useEffect(() => {
-    // Cleanup function to ensure player stops when component unmounts
-    return () => {
-      cleanupMedia(false); // Don't preserve position on unmount
-    };
-  }, [cleanupMedia]);
-
-  // Update visibility change handler to use the cleanup function
-  useEffect(() => {
-    // Handle page visibility changes (tab switching/minimizing)
-    const handleVisibilityChange = () => {
-      if (document.hidden && isPlaying) {
-        cleanupMedia(true); // Preserve position when tab becomes hidden
-      }
-    };
-
-    // Handle before unload (page refresh/close)
-    const handleBeforeUnload = () => {
-      cleanupMedia(false); // Don't preserve position on page unload
-    };
-
-    // Set up event listeners
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    window.addEventListener("beforeunload", handleBeforeUnload);
-
-    // Cleanup
-    return () => {
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-    };
-  }, [isPlaying, cleanupMedia]);
-
-  // Add effect to ensure we clean up on route changes
-  useEffect(() => {
-    // Create a proper event handler for beforeunload
-    const handleBeforeUnload = () => {
-      cleanupMedia(false); // Don't preserve position on page unload
-    };
-
-    // Add event listeners for route changes
-    window.addEventListener("beforeunload", handleBeforeUnload);
-
-    return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-      // Ensure cleanup happens now
-      cleanupMedia(false);
-    };
-  }, [cleanupMedia]);
-
-  // Modified handler to properly stop all media when toggling play state
-  const togglePlay = () => {
-    if (isPlaying) {
-      // If we're currently playing and about to pause, preserve position
-      cleanupMedia(true);
-    } else {
-      // If we're currently paused and about to play
-      setIsPlaying(true);
-      setAudioMuted(muted);
-
-      // If we have a stored position, ensure we're at that position
-      if (playerRef.current && currentPlaybackPosition > 0) {
-        playerRef.current.seekTo(currentPlaybackPosition);
-      }
-    }
-  };
+  const [initialStartPosition, setInitialStartPosition] = useState(0);
+  const lastUIUpdateRef = useRef<number>(Date.now());
+  const lastDBUpdateRef = useRef<number>(Date.now());
 
   // Setup window resize listener to detect mobile
   useEffect(() => {
@@ -370,7 +188,7 @@ const CourseContent = () => {
     fetchCourseData();
   }, [id, userId]);
 
-  // Update handleVideoSelect to set initial position without changing URL mid-playback
+  // Update handleVideoSelect to load video progress
   const handleVideoSelect = async (video: Video) => {
     // Check if the user can access this video
     const videoIndex = videos.findIndex((v) => v._id === video._id);
@@ -385,20 +203,17 @@ const CourseContent = () => {
       }
     }
 
-    // Reset player state whenever a new video is selected
-    setPlayerReady(false);
-    // Reset the seek flag when selecting a new video
-    hasInitialSeekRef.current = false;
-
     // Important: Don't change the sidebar state here if coming from the quiz completion flow
     console.log(
       "handleVideoSelect - rightSidebarOpen should stay:",
       rightSidebarOpen
     );
 
+    // // Reset position tracking before loading new video
+    // setInitialStartPosition(0);
+    // setCurrentPlaybackPosition(0);
     setSelectedVideo(video);
-
-    console.log("Selected video:", video);
+    console.log("Selected video:", video._id, video.title);
 
     // Load video progress
     if (userId) {
@@ -406,7 +221,7 @@ const CourseContent = () => {
 
       if (progressData) {
         const progress = JSON.parse(progressData);
-        console.log("Parsed progress:", progress);
+        console.log("Loaded progress data:", progress);
 
         const percent = progress.watchedPercent || 0;
         setMaxCompletionPercent(percent);
@@ -416,75 +231,128 @@ const CourseContent = () => {
           progress.playbackPositionSeconds &&
           progress.playbackPositionSeconds > 0
         ) {
-          // Store the position to be used when player mounts
-          setInitialStartPosition(progress.playbackPositionSeconds);
-          console.log(
-            "Setting initial position from DB:",
-            progress.playbackPositionSeconds
-          );
+          const position = progress.playbackPositionSeconds;
+          // If video is nearly complete, start from beginning
+          if (percent >= 95) {
+            console.log("Video already completed, starting from beginning");
+            setInitialStartPosition(0);
+          } else {
+            // Store the position to be used when player mounts
+            setInitialStartPosition(position);
+            setCurrentPlaybackPosition(position);
+            console.log("Setting initial position from DB:", position);
+          }
         } else if (percent > 0 && percent < 95) {
           // Fallback to estimating position based on percentage if no position is saved
-          const estimatedDuration = 600;
+          const estimatedDuration = 600; // 10 minutes
           const startTimeSeconds = Math.floor(
             (percent / 100) * estimatedDuration
           );
           setInitialStartPosition(startTimeSeconds);
+          setCurrentPlaybackPosition(startTimeSeconds);
           console.log("Estimating position from percent:", startTimeSeconds);
         } else {
           // Reset for completed or new videos
           setInitialStartPosition(0);
+          setCurrentPlaybackPosition(0);
           console.log("Resetting position to 0");
         }
 
         // Load notes
         const noteData = await getNoteForVideo(video._id, userId);
         if (noteData) {
-          const note = JSON.parse(noteData) as Note;
+          const note = JSON.parse(noteData);
           setNoteContent(note.markdownContent || note.content);
           setNoteTitle(note.title || "Untitled Note");
+          console.log("Loaded saved note for video");
         } else {
           setNoteContent("");
           setNoteTitle(`Notes for: ${video.title}`);
+          console.log("No saved notes found for video");
         }
       } else {
         setMaxCompletionPercent(0);
         setInitialStartPosition(0);
+        setCurrentPlaybackPosition(0);
         console.log("No progress data found, starting from beginning");
+
+        // Initialize empty note with video title
+        setNoteContent("");
+        setNoteTitle(`Notes for: ${video.title}`);
       }
     }
   };
 
-  // Update handleVideoProgress to save position without causing re-renders
-  const handleVideoProgress = async (
-    percent: number,
-    playedSeconds: number
-  ) => {
+  // Add function to handle video progress updates
+  const handleVideoProgress = async (percent: number, currentTime: number) => {
     if (selectedVideo && userId) {
-      // Only update database periodically to reduce server calls
       const now = Date.now();
-      if (playedSeconds > 0 && now - lastUpdateTimeRef.current > 5000) {
-        // Only save to database, don't update state that would cause re-renders
-        const result = await updateVideoProgress(
+
+      // Update UI more frequently but still throttled to prevent excessive re-renders
+      if (now - lastUIUpdateRef.current > 500) {
+        // Update current position state (causes re-render)
+        setCurrentPlaybackPosition(currentTime);
+
+        // Only update max percentage locally if it increases (causes re-render)
+        if (percent > maxCompletionPercent) {
+          setMaxCompletionPercent(percent);
+        }
+
+        // Update UI timer
+        lastUIUpdateRef.current = now;
+      }
+
+      // Save to database less frequently (every 5 seconds) with a separate timer
+      if (now - lastDBUpdateRef.current > 5000) {
+        console.log(
+          `Saving progress to DB: ${percent}%, position: ${currentTime}s`
+        );
+
+        // Save to database
+        const updateResult = await updateVideoProgress(
           selectedVideo._id,
           id as string,
           Math.max(percent, maxCompletionPercent), // Only send the highest percentage
           userId,
-          Math.floor(playedSeconds) // Save playback position in seconds
+          Math.floor(currentTime) // Save playback position in seconds
         );
 
-        // Update completed videos if needed
-        if (result.completed && !completedVideos.has(selectedVideo._id)) {
+        // Only mark video as completed if it's 95% or more complete
+        if (
+          updateResult.completed &&
+          percent >= 95 &&
+          !completedVideos.has(selectedVideo._id)
+        ) {
           // Mark as completed
           setCompletedVideos((prev) => new Set([...prev, selectedVideo._id]));
           console.log("Marked video as completed:", selectedVideo._id);
         }
 
-        lastUpdateTimeRef.current = now;
+        // Update DB timer
+        lastDBUpdateRef.current = now;
       }
+    }
+  };
 
-      // Only update max percentage locally if it increases
-      if (percent > maxCompletionPercent) {
-        setMaxCompletionPercent(percent);
+  // Handle video ended event
+  const handleVideoEnded = async () => {
+    if (selectedVideo && userId) {
+      console.log("Video ended, marking as 100% complete");
+      // Mark as 100% complete
+      await updateVideoProgress(
+        selectedVideo._id,
+        id as string,
+        100, // 100% complete
+        userId,
+        0 // Reset playback position since video is complete
+      );
+
+      // Update UI
+      setMaxCompletionPercent(100);
+
+      // Add to completed videos set
+      if (!completedVideos.has(selectedVideo._id)) {
+        setCompletedVideos((prev) => new Set([...prev, selectedVideo._id]));
       }
     }
   };
@@ -503,6 +371,7 @@ const CourseContent = () => {
       };
 
       await saveNote(selectedVideo._id, noteData, userId);
+      console.log("Note saved successfully");
     } catch (error) {
       console.error("Error saving note:", error);
     } finally {
@@ -578,126 +447,39 @@ const CourseContent = () => {
     }, 50); // Short timeout to ensure state changes apply
   };
 
-  // Format seconds into MM:SS format
-  const formatTime = (seconds: number) => {
-    if (isNaN(seconds)) return "00:00";
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins.toString().padStart(2, "0")}:${secs
-      .toString()
-      .padStart(2, "0")}`;
-  };
+  // Add a handleSeekTo function to control video seeking
+  const handleSeekTo = (seconds: number) => {
+    if (!selectedVideo || !userId) return;
 
-  // Toggle mute
-  const toggleMute = () => {
-    const newMutedState = !muted;
-    setMuted(newMutedState);
-    setAudioMuted(newMutedState);
+    console.log(`Seeking to timestamp: ${seconds}s`);
 
-    // Also try to directly mute any active media elements
-    try {
-      document.querySelectorAll("video, audio").forEach((media) => {
-        const mediaElement = media as HTMLMediaElement;
-        mediaElement.muted = newMutedState;
-        if (newMutedState) {
-          mediaElement.volume = 0;
-        } else {
-          mediaElement.volume = volume;
-        }
+    // 1. Update the current position state
+    setCurrentPlaybackPosition(seconds);
+
+    // 2. Update the VideoPlyr component by updating initialStartPosition
+    setInitialStartPosition(seconds);
+
+    // 3. Force focus to the video section
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+
+    // 4. Update database with the new position
+    updateVideoProgress(
+      selectedVideo._id,
+      id as string,
+      maxCompletionPercent, // Keep the same completion percentage
+      userId,
+      Math.floor(seconds) // Save new position
+    )
+      .then(() => {
+        console.log("Video position updated in database");
+      })
+      .catch((error) => {
+        console.error("Error updating video position:", error);
       });
-    } catch (e) {
-      console.error("Error toggling mute on media elements:", e);
-    }
   };
-
-  // Handle volume change
-  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newVolume = parseFloat(e.target.value);
-    setVolume(newVolume);
-    const shouldMute = newVolume === 0;
-    setMuted(shouldMute);
-    setAudioMuted(shouldMute);
-
-    // Also try to directly set volume on any active media elements
-    try {
-      document.querySelectorAll("video, audio").forEach((media) => {
-        const mediaElement = media as HTMLMediaElement;
-        mediaElement.volume = newVolume;
-        mediaElement.muted = shouldMute;
-      });
-    } catch (e) {
-      console.error("Error changing volume on media elements:", e);
-    }
-  };
-
-  // Skip forward 10 seconds - fixed typing
-  const skipForward = () => {
-    if (playerRef.current) {
-      const currentTime = playerRef.current.getCurrentTime();
-      // Temporarily mute during seeking to prevent audio glitches
-      const wasMuted = muted;
-      setAudioMuted(true);
-      playerRef.current.seekTo(currentTime + 10);
-      // Restore audio state after a short delay
-      setTimeout(() => {
-        setAudioMuted(wasMuted);
-      }, 50);
-    }
-  };
-
-  // Skip backward 10 seconds - fixed typing
-  const skipBackward = () => {
-    if (playerRef.current) {
-      const currentTime = playerRef.current.getCurrentTime();
-      // Temporarily mute during seeking to prevent audio glitches
-      const wasMuted = muted;
-      setAudioMuted(true);
-      playerRef.current.seekTo(Math.max(0, currentTime - 10));
-      // Restore audio state after a short delay
-      setTimeout(() => {
-        setAudioMuted(wasMuted);
-      }, 50);
-    }
-  };
-
-  // Handle seeking when user interacts with progress bar - fixed typing
-  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const seekTime = parseFloat(e.target.value);
-    if (playerRef.current) {
-      // Temporarily mute during seeking to prevent audio glitches
-      const wasMuted = muted;
-      setAudioMuted(true);
-      playerRef.current.seekTo(seekTime);
-      // Restore audio state after a short delay
-      setTimeout(() => {
-        setAudioMuted(wasMuted);
-      }, 50);
-    }
-  };
-
-  // Handle fullscreen toggle
-  const toggleFullscreen = () => {
-    if (!document.fullscreenElement && videoContainerRef.current) {
-      videoContainerRef.current.requestFullscreen().catch((err) => {
-        console.error(`Error attempting to enable fullscreen: ${err.message}`);
-      });
-    } else if (document.fullscreenElement) {
-      document.exitFullscreen();
-    }
-    setFullscreen(!fullscreen);
-  };
-
-  // Update fullscreen state when exiting with Escape key
-  useEffect(() => {
-    const handleFullscreenChange = () => {
-      setFullscreen(!!document.fullscreenElement);
-    };
-
-    document.addEventListener("fullscreenchange", handleFullscreenChange);
-    return () => {
-      document.removeEventListener("fullscreenchange", handleFullscreenChange);
-    };
-  }, []);
 
   if (loading) {
     return (
@@ -952,18 +734,7 @@ const CourseContent = () => {
                     videoId={selectedVideo?._id}
                     currentTimestamp={currentPlaybackPosition}
                     courseId={id as string}
-                    onSeekTo={(seconds) => {
-                      if (playerRef.current) {
-                        // Temporarily mute during seeking to prevent audio glitches
-                        const wasMuted = muted;
-                        setAudioMuted(true);
-                        playerRef.current.seekTo(seconds);
-                        // Restore audio state after a short delay
-                        setTimeout(() => {
-                          setAudioMuted(wasMuted);
-                        }, 50);
-                      }
-                    }}
+                    onSeekTo={handleSeekTo}
                   />
                 </BlurWrapper>
               )}
@@ -978,18 +749,7 @@ const CourseContent = () => {
                   courseId={id as string}
                   watchedPercent={maxCompletionPercent}
                   onQuizCompleted={handleQuizCompleted}
-                  onSeekTo={(seconds) => {
-                    if (playerRef.current) {
-                      // Temporarily mute during seeking to prevent audio glitches
-                      const wasMuted = muted;
-                      setAudioMuted(true);
-                      playerRef.current.seekTo(seconds);
-                      // Restore audio state after a short delay
-                      setTimeout(() => {
-                        setAudioMuted(wasMuted);
-                      }, 50);
-                    }
-                  }}
+                  onSeekTo={handleSeekTo}
                 />
               )}
             </div>
@@ -1050,244 +810,15 @@ const CourseContent = () => {
                 }`}
               >
                 {/* Video player */}
-                <div
-                  ref={videoContainerRef}
-                  className="relative aspect-video w-full overflow-hidden rounded-lg bg-black shadow-xl"
-                >
-                  {selectedVideo && (
-                    <ReactPlayer
-                      key={`video-${selectedVideo._id}`}
-                      ref={playerRef}
-                      url={selectedVideo.url}
-                      width="100%"
-                      height="100%"
-                      playing={isPlaying}
-                      volume={volume}
-                      muted={audioMuted || muted}
-                      controls={false}
-                      stopOnUnmount={true}
-                      playsinline={true}
-                      pip={false}
-                      onError={(e) => {
-                        console.error("ReactPlayer error:", e);
-                        // Reset player state on error, but don't preserve position
-                        cleanupMedia(false);
-                      }}
-                      onReady={() => {
-                        setPlayerReady(true);
-                        // Seek to initial position when player is ready, but only once
-                        if (
-                          initialStartPosition > 0 &&
-                          playerRef.current &&
-                          !hasInitialSeekRef.current
-                        ) {
-                          // Temporarily mute during initial seeking to prevent audio glitches
-                          setAudioMuted(true);
-                          playerRef.current.seekTo(initialStartPosition);
-                          // Mark that we've already done the initial seek
-                          hasInitialSeekRef.current = true;
-                          // Restore audio state after a short delay
-                          setTimeout(() => {
-                            setAudioMuted(muted);
-                          }, 100);
-                        }
-                      }}
-                      onProgress={(state) => {
-                        if (playerReady) {
-                          // Calculate current progress percentage
-                          const currentPercent = Math.round(state.played * 100);
-
-                          // Update current position without triggering additional seeks
-                          setCurrentPlaybackPosition(state.playedSeconds);
-
-                          // Only update progress periodically to avoid too many server calls
-                          const now = Date.now();
-                          if (now - lastUpdateTimeRef.current > 5000) {
-                            handleVideoProgress(
-                              currentPercent,
-                              state.playedSeconds
-                            );
-                            lastUpdateTimeRef.current = now;
-                          }
-                        }
-                      }}
-                      onPause={() => {
-                        // Store current position before setting pause state
-                        if (playerRef.current) {
-                          const currentTime =
-                            playerRef.current.getCurrentTime();
-                          setCurrentPlaybackPosition(currentTime);
-                        }
-
-                        setIsPlaying(false);
-                        setAudioMuted(true);
-
-                        // Directly mute any audio elements to be extra safe
-                        try {
-                          document
-                            .querySelectorAll("video, audio")
-                            .forEach((media) => {
-                              const mediaElement = media as HTMLMediaElement;
-                              mediaElement.muted = true;
-                              mediaElement.volume = 0;
-                            });
-                        } catch (e) {
-                          console.error("Error muting on pause:", e);
-                        }
-                      }}
-                      onPlay={() => {
-                        setIsPlaying(true);
-                        setAudioMuted(muted);
-                      }}
-                      onEnded={() => cleanupMedia(false)}
-                      onDuration={(duration) => setDuration(duration)}
-                      config={{
-                        file: {
-                          attributes: {
-                            controlsList: "nodownload",
-                            disablePictureInPicture: true,
-                            onContextMenu: (e: React.MouseEvent) =>
-                              e.preventDefault(),
-                            autoPlay: false, // Disable browser's autoplay
-                            preload: "metadata", // Only preload metadata, not the whole video
-                          },
-                          forceVideo: true,
-                          forceAudio: false,
-                        },
-                        youtube: {
-                          playerVars: {
-                            disablekb: 1,
-                            fs: 0,
-                            modestbranding: 1,
-                            rel: 0,
-                            iv_load_policy: 3,
-                          },
-                          embedOptions: {
-                            onUnstarted: () => setIsPlaying(false),
-                          },
-                        },
-                        vimeo: {
-                          playerOptions: {
-                            autopause: true,
-                            byline: false,
-                            portrait: false,
-                            title: false,
-                          },
-                        },
-                      }}
-                    />
-                  )}
-
-                  {/* Custom overlay controls */}
-                  <div className="absolute inset-0 flex flex-col justify-between bg-gradient-to-t from-black/70 to-transparent opacity-0 transition-opacity duration-300 hover:opacity-100">
-                    {/* Top gradient overlay for video title */}
-                    <div className="w-full bg-gradient-to-b from-black/70 to-transparent p-4">
-                      <h3 className="text-sm font-semibold text-white sm:text-base">
-                        {selectedVideo.title}
-                      </h3>
-                    </div>
-
-                    {/* Bottom controls */}
-                    <div className="w-full bg-gradient-to-t from-black to-transparent p-3">
-                      {/* Progress bar */}
-                      <div className="flex w-full items-center gap-2">
-                        <span className="hidden text-xs text-white sm:block">
-                          {formatTime(currentPlaybackPosition)}
-                        </span>
-                        <input
-                          type="range"
-                          min={0}
-                          max={duration}
-                          value={currentPlaybackPosition}
-                          onChange={handleSeek}
-                          className="h-1.5 flex-1 appearance-none rounded-full bg-zinc-600"
-                          style={{
-                            background: `linear-gradient(to right, #f0bb1c ${
-                              (currentPlaybackPosition / duration) * 100
-                            }%, #4b5563 ${
-                              (currentPlaybackPosition / duration) * 100
-                            }%)`,
-                            WebkitAppearance: "none",
-                          }}
-                        />
-                        <span className="hidden text-xs text-white sm:block">
-                          {formatTime(duration)}
-                        </span>
-                      </div>
-
-                      {/* Media controls */}
-                      <div className="mt-2 flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <button
-                            onClick={skipBackward}
-                            className="rounded-full p-1 text-white hover:bg-white/20 sm:p-2"
-                            aria-label="Skip back 10 seconds"
-                          >
-                            <FiSkipBack className="size-4" />
-                          </button>
-
-                          <button
-                            onClick={togglePlay}
-                            className="rounded-full bg-white/20 p-2 text-white hover:bg-white/30 sm:p-3"
-                            aria-label={isPlaying ? "Pause" : "Play"}
-                          >
-                            {isPlaying ? (
-                              <FiPause className="size-4" />
-                            ) : (
-                              <FiPlay className="size-4" />
-                            )}
-                          </button>
-
-                          <button
-                            onClick={skipForward}
-                            className="rounded-full p-1 text-white hover:bg-white/20 sm:p-2"
-                            aria-label="Skip forward 10 seconds"
-                          >
-                            <FiSkipForward className="size-4" />
-                          </button>
-
-                          <div className="hidden items-center gap-2 sm:flex">
-                            <button
-                              onClick={toggleMute}
-                              className="rounded-full p-1 text-white hover:bg-white/20"
-                              aria-label={audioMuted ? "Unmute" : "Mute"}
-                            >
-                              {audioMuted ? (
-                                <FiVolumeX className="size-4" />
-                              ) : (
-                                <FiVolume2 className="size-4" />
-                              )}
-                            </button>
-
-                            <input
-                              type="range"
-                              min={0}
-                              max={1}
-                              step={0.1}
-                              value={volume}
-                              onChange={handleVolumeChange}
-                              className="h-1 w-16 appearance-none rounded-full bg-zinc-600"
-                              style={{
-                                background: `linear-gradient(to right, #f0bb1c ${
-                                  volume * 100
-                                }%, #4b5563 ${volume * 100}%)`,
-                                WebkitAppearance: "none",
-                              }}
-                            />
-                          </div>
-                        </div>
-
-                        <button
-                          onClick={toggleFullscreen}
-                          className="rounded-full p-1 text-white hover:bg-white/20 sm:p-2"
-                          aria-label="Toggle fullscreen"
-                        >
-                          <FiMaximize className="size-4" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <VideoPlyr
+                  src={selectedVideo.url}
+                  poster={selectedVideo.thumbnail}
+                  initialPosition={initialStartPosition}
+                  onProgress={(percent, currentTime) =>
+                    handleVideoProgress(percent, currentTime)
+                  }
+                  onEnded={handleVideoEnded}
+                />
 
                 {/* Video Title with Next Video button */}
                 <div className="my-4 flex items-center justify-between">
@@ -1314,12 +845,23 @@ const CourseContent = () => {
                 <div className="mb-6 space-y-2">
                   <div className="h-1.5 w-full rounded-full bg-zinc-800">
                     <div
-                      className="h-1.5 rounded-full bg-gradient-yellow"
+                      className="h-1.5 rounded-full bg-gradient-yellow transition-all duration-300"
                       style={{ width: `${maxCompletionPercent}%` }}
                     ></div>
                   </div>
                   <div className="flex justify-between text-xs text-zinc-400">
-                    <span>{maxCompletionPercent}% complete</span>
+                    <span>
+                      {maxCompletionPercent}% complete
+                      {currentPlaybackPosition > 0 && (
+                        <span className="ml-1">
+                          • Position: {Math.floor(currentPlaybackPosition / 60)}
+                          :
+                          {String(
+                            Math.floor(currentPlaybackPosition % 60)
+                          ).padStart(2, "0")}
+                        </span>
+                      )}
+                    </span>
                     <span>
                       {currentVideoIndex + 1} of {videos.length}
                     </span>
@@ -1378,18 +920,7 @@ const CourseContent = () => {
                           videoId={selectedVideo?._id}
                           currentTimestamp={currentPlaybackPosition}
                           courseId={id as string}
-                          onSeekTo={(seconds) => {
-                            if (playerRef.current) {
-                              // Temporarily mute during seeking to prevent audio glitches
-                              const wasMuted = muted;
-                              setAudioMuted(true);
-                              playerRef.current.seekTo(seconds);
-                              // Restore audio state after a short delay
-                              setTimeout(() => {
-                                setAudioMuted(wasMuted);
-                              }, 50);
-                            }
-                          }}
+                          onSeekTo={handleSeekTo}
                         />
                       </BlurWrapper>
                     </TabsContent>
@@ -1405,18 +936,7 @@ const CourseContent = () => {
                         courseId={id as string}
                         watchedPercent={maxCompletionPercent}
                         onQuizCompleted={handleQuizCompleted}
-                        onSeekTo={(seconds) => {
-                          if (playerRef.current) {
-                            // Temporarily mute during seeking to prevent audio glitches
-                            const wasMuted = muted;
-                            setAudioMuted(true);
-                            playerRef.current.seekTo(seconds);
-                            // Restore audio state after a short delay
-                            setTimeout(() => {
-                              setAudioMuted(wasMuted);
-                            }, 50);
-                          }
-                        }}
+                        onSeekTo={handleSeekTo}
                       />
                     </TabsContent>
                   </Tabs>
